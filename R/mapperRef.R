@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #' Mapper Reference Class (R6)
 #' @name MapperRef
 #' @aliases Mapper
@@ -13,6 +14,7 @@
 #' @section Arguments:
 #' \itemize{
 #'    \item{\strong{X}}: The data, either as a matrix, or a function that returns a matrix.
+#'    \item{\strong{dist_x}}: A precomputed matrix of distances.
 #' }
 #' @section Fields:
 #' \itemize{
@@ -25,7 +27,7 @@
 #'   \item{\strong{vertices}}: The mapper vertices. 
 #'   \item{\strong{simplicial_complex}}: A \code{\link[simplextree:simplextree]{simplex tree}} object.
 #' }
-#' 
+#'
 #' @section Methods:
 #' \itemize{
 #'   \item{\code{\link{use_filter}}: Specifies the filter.}
@@ -41,9 +43,9 @@
 #' }
 #' @section More information:
 #' Full documentation available \href{https://peekxc.github.io/Mapper}{online}.
-#' 
+#'
 #' @return \code{\link{MapperRef}} instance equipped with methods for building the mapper.
-#' 
+#'
 #' @import methods
 #' @importFrom Rcpp sourceCpp
 #' @author Matt Piekenbrock, \email{matt.piekenbrock@@gmail.com}
@@ -56,6 +58,7 @@ NULL
 MapperRef <- R6::R6Class("MapperRef", 
   private = list(
     .X = NULL, 
+    .dist_x=NULL,
     .filter = NULL,
     .cover = NULL, 
     .clustering_algorithm = NULL, 
@@ -170,7 +173,7 @@ MapperRef$set("active", "data", function(value){
       }
     }
 })
-              
+
 
 ## X ----
 ## The data should be held fixed
@@ -194,6 +197,26 @@ MapperRef$set("active", "X",
       # stop("`$X` is read-only. The data points 'X' are specific to a MapperRef object.")
     }
   }
+)
+
+## dist_x ----
+MapperRef$set("active","dist_x",
+  function(value){
+    if (missing(value)){ return(private$.dist_x)}
+    else{
+      if (isSymmetric(value)){
+        dist_x_acc <- function(dist_matrix){
+           function(idx=NULL){
+              if (missing(idx)){return(dist_matrix)}
+              return(dist_matrix[idx,idx])
+            }
+        }
+        private$.dist_x <- dist_x_acc(value) 
+      }else{
+        stop("dist_x must be a symmetric matrix" )
+      }
+    }
+  }              
 )
 
 ## filter ----
@@ -237,11 +260,12 @@ MapperRef$set("active", "measure",
 
 ## initialize ----
 ## Initialization method relies on active binding 
-MapperRef$set("public", "initialize", function(X = NULL){
+MapperRef$set("public", "initialize", function(X = NULL,dist_x = NULL){
   private$.simplicial_complex <- simplextree::simplex_tree()
   self$use_distance_measure(measure = "euclidean")
   self$use_clustering_algorithm(cl = "single", cutoff_method = "continuous")
-  if (!missing(X) && !is.null(X)){ self$use_data(X) }
+  if ((!missing(X) && !is.null(X)) || (!missing(dist_x) && !is.null(dist_x)))
+  {self$use_data(X,dist_x)}
   return(self)
 })
 
@@ -255,15 +279,20 @@ MapperRef$set("public", "initialize", function(X = NULL){
 #' it must be one of the (illustrative) data sets listed in \code{data(package="Mapper")}. 
 #' Otherwise, \code{data} must be either a matrix of coordinate values, a function that returns a matrix of 
 #' coordinate values.
-MapperRef$set("public", "use_data", function(X){
-  if (is.character(X)){
-    stopifnot(X %in% c("noisy_circle", "wvs_us_wave6"))
-    self$X <- local({ 
-      load(system.file(sprintf("data/%s.Rdata", X), package="Mapper"))
-      X <- eval(parse(text=X))
-      return(scale(as.matrix(X))) 
-    })
-  } else { self$X <- X }
+MapperRef$set("public", "use_data", function(X,dist_x){
+  if (is.null(X)){
+      self$dist_x <- dist_x
+      self$X <- matrix(0,1,1)
+  }else{
+      if (is.character(X)){
+        stopifnot(X %in% c("noisy_circle", "wvs_us_wave6"))
+        self$X <- local({ 
+          load(system.file(sprintf("data/%s.Rdata", X), package="Mapper"))
+          X <- eval(parse(text=X))
+          return(scale(as.matrix(X))) 
+        })
+      } else { self$X <- X }
+  }
   return(invisible(self))
 })
 
@@ -413,7 +442,7 @@ MapperRef$set("public", "use_filter", function(filter=c("PC", "IC", "ECC", "KDE"
 #' }
 #' @section Details: Unless the \code{\link[Mapper:use_clustering_algorithm]{clustering_algorithm}} has been replaced by the user, 
 #' by default, Mapper requires a notion of distance between objects to be defined in creating the vertices of the construction. 
-#' 
+#'
 #' The distance function is determined based on the supplied \code{measure}. \code{measure} must be one of:
 #' \preformatted{["euclidean", "maximum", "manhattan", "canberra", "binary", "minkowski"]}
 #' or, if the \pkg{proxy} and \code{\link[parallelDist]{parallelDist}} packages are installed, any name in \code{proxy::pr_DB$get_entry_names()}.\cr
@@ -427,15 +456,15 @@ MapperRef$set("public", "use_filter", function(filter=c("PC", "IC", "ECC", "KDE"
 #' m <- MapperRef$new(noisy_circle)
 #' m$use_filter(noisy_circle[,1])
 #' m$use_cover("fixed interval", number_intervals = 5, percent_overlap = 25)
-#' 
+#'
 #' ## Constructs clusters with euclidean metric (default)
 #' m$use_distance_measure("euclidean")
 #' m$construct_pullback() 
-#' 
+#'
 #' ## Constructs clusters with p-norm (p = 1)
 #' m$use_distance_measure("Minkowski", p = 1L)
 #' m$construct_pullback() 
-#' 
+#'
 #' \dontrun{
 #' ## To see list of available measures, use:
 #' proxy::pr_DB$get_entry_names()
@@ -467,7 +496,7 @@ MapperRef$set("public", "use_distance_measure", function(measure, ...){
 #' m <- MapperRef$new(noisy_circle)
 #' m$use_filter(noisy_circle[,1])
 #' m$use_cover("fixed interval", number_intervals = 5, percent_overlap = 25)
-#' 
+#'
 #' ## Alternative way to specify (and construct) the cover
 #' cover <- FixedIntervalCover$new(number_intervals = 5, percent_overlap = 25)
 #' cover$construct_cover(filter = m$filter)
@@ -507,8 +536,7 @@ MapperRef$set("public", "use_cover", function(cover="fixed interval", ...){
 #' will taken precedence and override all previously set default settings. 
 MapperRef$set("public", "use_clustering_algorithm", 
   function(cl = c("single", "ward.D", "ward.D2", "complete", "average", "mcquitty", "median", "centroid"), 
-           cutoff_method = c("continuous", "histogram"),
-           ...){
+           cutoff_method = c("continuous", "histogram"), ...){
     ## Use a linkage criterion + cutting rule
     default_cutting_params <- list(...)
     if (missing(cl)) { cl <- "single" }
@@ -526,11 +554,15 @@ MapperRef$set("public", "use_clustering_algorithm",
           override_params <- list(...)
           
           ## Use parallelDist package if available
-          has_pd <- requireNamespace("parallelDist", quietly = TRUE)
-          dist_f <- ifelse(has_pd, parallelDist::parallelDist, stats::dist)
-          dist_params <- list(x=self$X(idx), method=tolower(self$measure))
-          if (!is.null(private$.measure_opt)){ dist_params <- append(dist_params, private$.measure_opt) }
-          dist_x <- do.call(dist_f, dist_params)
+          if (sum(self$X()) != 0){
+              has_pd <- requireNamespace("parallelDist", quietly = TRUE)
+              dist_f <- ifelse(has_pd, parallelDist::parallelDist, stats::dist)
+              dist_params <- list(x=self$X(idx), method=tolower(self$measure))
+              if (!is.null(private$.measure_opt)){ dist_params <- append(dist_params, private$.measure_opt) }
+              dist_x <- do.call(dist_f, dist_params)
+          }else{
+              dist_x<- as.dist(self$dist_x(idx))
+          }
           
           ## Use fastcluster if available 
           has_fc <- requireNamespace("fastcluster", quietly = TRUE)
@@ -575,7 +607,7 @@ MapperRef$set("public", "construct_pullback", function(pullback_ids=NULL, ...){
   pids_supplied <- (!missing(pullback_ids) && !is.null(pullback_ids))
   if (pids_supplied){ stopifnot(all(pullback_ids %in% self$cover$index_set)) }
   pullback_ids <- if (pids_supplied){ pullback_ids } else { self$cover$index_set }
-  
+    
   ## If specific pullback ids not given, then resist the pullback mapping
   if (!pids_supplied || length(private$.pullback) == 0){
     n_sets <- length(self$cover$index_set)
@@ -641,7 +673,7 @@ MapperRef$set("public", "construct_nerve", function(k, indices = NULL, min_weigh
   stree_ptr <- private$.simplicial_complex$as_XPtr()
   if (k == 0){ 
     if (!modify){ return(as.integer(names(self$vertices))) } 
-    build_0_skeleton(as.integer(names(self$vertices)), stree_ptr)
+    Mapper:::build_0_skeleton(as.integer(names(self$vertices)), stree_ptr)
     return(invisible(self))
   }
   
@@ -656,13 +688,13 @@ MapperRef$set("public", "construct_nerve", function(k, indices = NULL, min_weigh
   params <- list(pullback_ids = indices, vertices = self$vertices, pullback = private$.pullback, stree = stree_ptr, modify = modify)
   if (k == 1){ 
     params <- modifyList(params, list(min_sz = min_weight)) 
-    if (!params$modify){ return(do.call(rbind, do.call(build_1_skeleton, params)) ) } 
-    do.call(build_1_skeleton, params)
+    if (!params$modify){ return(do.call(rbind, do.call(Mapper:::build_1_skeleton, params)) ) } 
+    do.call(Mapper:::build_1_skeleton, params)
     return(invisible(self))
   } else { 
     params <- modifyList(params, list(k = k)) 
-    if (!params$modify){ return(do.call(rbind, do.call(build_k_skeleton, params)) ) } 
-    do.call(build_k_skeleton, params)
+    if (!params$modify){ return(do.call(rbind, do.call(Mapper:::build_k_skeleton, params)) ) } 
+    do.call(Mapper:::build_k_skeleton, params)
     return(invisible(self))
   }  
 })
@@ -830,61 +862,61 @@ MapperRef$set("public", "as_igraph", function(vertex_scale=c("linear", "log"), v
 # })
 
 
-# MapperRef$set("public", "as_grapher", function(construct_widget=TRUE, ...){
-#   requireNamespace("grapher", quietly = TRUE)
-#   
-#   ## Make the igraph 
-#   am <- private$.simplicial_complex$as_adjacency_matrix()
-#   G <- igraph::graph_from_adjacency_matrix(am, mode = "undirected", add.colnames = NA) 
-#   json_config <- grapher::getDefaultJsonConfig(network=G)
-# 
-#   ## Color nodes and edges by a default rainbow palette
-#   rbw_pal <- rev(rainbow(100, start = 0, end = 4/6))
-#   agg_node_val <- sapply(sapply(private$.vertices, function(v_idx){ 
-#     apply(as.matrix(self$cover$filter_values[v_idx,]), 1, mean)
-#   }), mean)
-#   binned_idx <- cut(agg_node_val, breaks = 100, labels = F)
-#   vertex_colors <- rbw_pal[binned_idx]
-#   vertex_sizes <- sapply(private$.vertices, length) 
-#   
-#   ## Normalize between 0-1, unless all the same
-#   normalize <- function(x) { 
-#     if (all(x == x[1])){ return(rep(1, length(x))) }
-#     else {  (x - min(x))/(max(x) - min(x)) }
-#   }
-#     
-#   ## Create the vertices. By default, color them on a rainbow palette according to their mean filter value.
-#   if (length(igraph::V(G)) > 0){
-#     vertex_radii <- (7L - 2L)*normalize(vertex_sizes) + 2L
-#     vertex_xy <- apply(igraph::layout.auto(G), 2, normalize)
-#     json_config$nodes$x <- vertex_xy[, 1]
-#     json_config$nodes$y <- vertex_xy[, 2]
-#     json_config$nodes$r <- vertex_radii
-#     json_config$nodes$color <- grapher::hex2rgba(vertex_colors)
-#     # index = 0:(length(vertex_sizes)-1))
-#   } else {
-#     json_config$nodes <- integer(length = 0L)
-#   }
-#     
-#   ## Create the edges w/ a similar coloring scheme.
-#   if (length(igraph::E(G)) > 0){
-#     el <- igraph::as_edgelist(G, names = FALSE)
-#     edge_binned_idx <- apply(el, 1, function(vertex_ids) { (binned_idx[vertex_ids[1]] + binned_idx[vertex_ids[2]])/2 })
-#     edge_links <- matrix(apply(el, 2, as.integer) - 1L, ncol = 2)
-#     json_config$links$from <- edge_links[,1]
-#     json_config$links$to <- edge_links[,2]
-#     json_config$links$color <- substr(rbw_pal[edge_binned_idx], start = 0, stop = 7) 
-#   } else {
-#     json_config$links <- integer(length = 0L)
-#   }
-#     
-#   ## Return the grapher instance or just the json config if requested 
-#   if (construct_widget){
-#     grapher::grapher(json_config) 
-#   } else {
-#     return(json_config)
-#   }
-# })
+ MapperRef$set("public", "as_grapher", function(construct_widget=TRUE, ...){
+   requireNamespace("grapher", quietly = TRUE)
+   
+   ## Make the igraph 
+   am <- private$.simplicial_complex$as_adjacency_matrix()
+   G <- igraph::graph_from_adjacency_matrix(am, mode = "undirected", add.colnames = NA) 
+   json_config <- grapher::getDefaultJsonConfig(network=G)
+ 
+   ## Color nodes and edges by a default rainbow palette
+   rbw_pal <- rev(rainbow(100, start = 0, end = 4/6))
+   agg_node_val <- sapply(sapply(private$.vertices, function(v_idx){ 
+     apply(as.matrix(self$cover$filter_values[v_idx,]), 1, mean)
+   }), mean)
+   binned_idx <- cut(agg_node_val, breaks = 100, labels = F)
+   vertex_colors <- rbw_pal[binned_idx]
+   vertex_sizes <- sapply(private$.vertices, length) 
+   
+   ## Normalize between 0-1, unless all the same
+   normalize <- function(x) { 
+     if (all(x == x[1])){ return(rep(1, length(x))) }
+     else {  (x - min(x))/(max(x) - min(x)) }
+   }
+     
+   ## Create the vertices. By default, color them on a rainbow palette according to their mean filter value.
+   if (length(igraph::V(G)) > 0){
+     vertex_radii <- (7L - 2L)*normalize(vertex_sizes) + 2L
+     vertex_xy <- apply(igraph::layout.auto(G), 2, normalize)
+     json_config$nodes$x <- vertex_xy[, 1]
+     json_config$nodes$y <- vertex_xy[, 2]
+     json_config$nodes$r <- vertex_radii
+     json_config$nodes$color <- grapher::hex2rgba(vertex_colors)
+     # index = 0:(length(vertex_sizes)-1))
+   } else {
+     json_config$nodes <- integer(length = 0L)
+   }
+     
+   ## Create the edges w/ a similar coloring scheme.
+   if (length(igraph::E(G)) > 0){
+     el <- igraph::as_edgelist(G, names = FALSE)
+     edge_binned_idx <- apply(el, 1, function(vertex_ids) { (binned_idx[vertex_ids[1]] + binned_idx[vertex_ids[2]])/2 })
+     edge_links <- matrix(apply(el, 2, as.integer) - 1L, ncol = 2)
+     json_config$links$from <- edge_links[,1]
+     json_config$links$to <- edge_links[,2]
+     json_config$links$color <- substr(rbw_pal[edge_binned_idx], start = 0, stop = 7) 
+   } else {
+     json_config$links <- integer(length = 0L)
+   }
+     
+   ## Return the grapher instance or just the json config if requested 
+   if (construct_widget){
+     grapher::grapher(json_config) 
+  } else {
+     return(json_config)
+   }
+ })
 
 ## as_pixiplex ----
 #' @name as_pixiplex
@@ -944,4 +976,3 @@ MapperRef$set("public", "exportMapper", function(graph_type=c("adjacency_matrix"
   class(result) <- "Mapper"
   return(result)
 })
-
