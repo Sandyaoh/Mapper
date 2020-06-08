@@ -57,14 +57,14 @@ cutoff_first_bin <- function(hcl, num_bins, check_skew=TRUE) {
 #' @return The cut-off value to use with \code{\link[stats]{cutree}}.
 #' @importFrom stats density
 #' @export
-cutoff_first_threshold <- function(hcl, threshold = 0.0, ...){
+cutoff_first_threshold <- function(hcl, threshold = 0.0, tol = sqrt(.Machine$double.eps) , ...){
   if (!is(hcl, "hclust")){ stop("'cutoff_first_bin' expects an 'hclust' object as input.") }
   n <- nrow(hcl$merge)+1L
   density_params <- list(...)
   if (is.null(density_params$n)){ density_params$n <- min(c(2^ceiling(log(n)/log(2)), 512L)) }
   density_params$x <- hcl$height
   f_h <- do.call(stats::density, density_params)
-  cut_idx <- Position(function(x) abs(x - threshold) < sqrt(.Machine$double.eps), x = f_h$y)
+  cut_idx <- Position(function(x) abs(x - threshold) < tol, x = f_h$y)
   return(ifelse(is.na(cut_idx) || cut_idx == 1L, max(hcl$height), f_h$x[cut_idx]))
   # if (is.na(cut_idx) || cut_idx == 1L) { as.vector(cutree(hcl, k = 1L)) }
   # else { as.vector(cutree(hcl, h = )) }
