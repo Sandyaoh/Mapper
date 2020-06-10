@@ -17,10 +17,23 @@
 #' @return The cut-off value to use with \code{\link[stats]{cutree}}.
 #' @importFrom stats cutree
 #' @export
-cutoff_first_bin <- function(hcl, num_bins, check_skew=TRUE) {
+cutoff_first_bin <- function(hcl, num_bins, min_dist=NULL, check_skew=TRUE) {
   if (!is(hcl, "hclust")){ stop("'cutoff_first_bin' expects an 'hclust' object as input.") }
-  breaks <- as.double(seq(head(hcl$height,1L), tail(hcl$height,1L), length.out = num_bins))
-  bin_idx <- tabulate(findInterval(x = as.double(hcl$height), vec = breaks, rightmost.closed = FALSE, all.inside = TRUE, left.open = FALSE), nbins = num_bins)
+  
+  #If the maximum height is less than min_dist, return everything in 1 cluster
+  if(!is.null(min_dist)){
+    if(max(hcl$height) < min_dist){
+      return(max(hcl$height))
+    }else{#Breaks start from the maximum bin less than min_dist
+     step <- (tail(hcl$height,1L)-head(hcl$height,1L))/(num_bins-1)
+     k <- floor((min_dist-head(hcl$height,1L))/step)
+     breaks <- c(head(hcl$height,1L),seq(head(hcl$height,1L)+k*step,tail(hcl$height,1L),by=step))
+     num_bins=length(breaks)
+    }  threshold = 0.0
+  }else{
+    breaks <- as.double(seq(head(hcl$height,1L), tail(hcl$height,1L), length.out = num_bins))
+    bin_idx <- tabulate(findInterval(x = as.double(hcl$height), vec = breaks, rightmost.closed = FALSE, all.inside = TRUE, left.open = FALSE), nbins = num_bins)
+  }
   
   ## If the majority of the mass of linkage-distances are left-skewed (high), then the 
   ## motivation for the heuristic is not met, return everything in 1 cluster.
@@ -57,14 +70,17 @@ cutoff_first_bin <- function(hcl, num_bins, check_skew=TRUE) {
 #' @return The cut-off value to use with \code{\link[stats]{cutree}}.
 #' @importFrom stats density
 #' @export
-cutoff_first_threshold <- function(hcl, threshold = 0.0, tol = sqrt(.Machine$double.eps) , ...){
+cutoff_first_threshold <- function(hcl, threshold = 0.0, tol = sqrt(.Machine$double.eps), min_dist=NULL , ...){
   if (!is(hcl, "hclust")){ stop("'cutoff_first_bin' expects an 'hclust' object as input.") }
+  #If the maximum height is less than min_dist, return everything in 1 cluster 
+  if(!is.null(min_dist)){
+    if(max(hcl$height) < min_dist){return(max(hcl$height))}}
   n <- nrow(hcl$merge)+1L
   density_params <- list(...)
   if (is.null(density_params$n)){ density_params$n <- min(c(2^ceiling(log(n)/log(2)), 512L)) }
   density_params$x <- hcl$height
   f_h <- do.call(stats::density, density_params)
-  cut_idx <- Position(function(x) abs(x - threshold) < tol, x = f_h$y)
+  cut_idx <- min(Position(function(x) abs(x - threshold) < tol, x = f_h$y))
   return(ifelse(is.na(cut_idx) || cut_idx == 1L, max(hcl$height), f_h$x[cut_idx]))
   # if (is.na(cut_idx) || cut_idx == 1L) { as.vector(cutree(hcl, k = 1L)) }
   # else { as.vector(cutree(hcl, h = )) }
