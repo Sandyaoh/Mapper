@@ -29,7 +29,7 @@ cutoff_first_bin <- function(hcl, num_bins, min_dist=NULL, check_skew=TRUE) {
      k <- floor((min_dist-head(hcl$height,1L))/step)
      breaks <- c(head(hcl$height,1L),seq(head(hcl$height,1L)+k*step,tail(hcl$height,1L),by=step))
      num_bins=length(breaks)
-    }  threshold = 0.0
+    } 
   }else{
     breaks <- as.double(seq(head(hcl$height,1L), tail(hcl$height,1L), length.out = num_bins))
     bin_idx <- tabulate(findInterval(x = as.double(hcl$height), vec = breaks, rightmost.closed = FALSE, all.inside = TRUE, left.open = FALSE), nbins = num_bins)
