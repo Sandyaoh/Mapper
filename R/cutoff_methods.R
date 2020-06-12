@@ -26,12 +26,11 @@ cutoff_first_bin <- function(hcl, num_bins, min_dist=NULL, check_skew=TRUE) {
       return(max(hcl$height))
     }else{#Breaks start from the maximum bin less than min_dist
         step <- (tail(hcl$height,1L)-head(hcl$height,1L))/(num_bins-1)
-        k <- floor((min_dist-head(hcl$height,1L))/step)
-        if(k >= 1){
-          breaks <- as.double(c(head(hcl$height,1L),seq(head(hcl$height,1L)+k*step,tail(hcl$height,1L),by=step)))
+        k <- ceiling((min_dist-head(hcl$height,1L))/step)
+        breaks <- as.double(seq(head(hcl$height,1L), tail(hcl$height,1L), length.out = num_bins))
+        if(k >= 2){
+          breaks <- c(breaks[1],breaks[k:length(breaks)])
           num_bins=length(breaks)
-        }else{
-          breaks <- as.double(seq(head(hcl$height,1L), tail(hcl$height,1L), length.out = num_bins))
         } 
     }
   }else{
