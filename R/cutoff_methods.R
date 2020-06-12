@@ -28,7 +28,7 @@ cutoff_first_bin <- function(hcl, num_bins, min_dist=NULL, check_skew=TRUE) {
         step <- (tail(hcl$height,1L)-head(hcl$height,1L))/(num_bins-1)
         k <- floor((min_dist-head(hcl$height,1L))/step)
         if(k >= 1){
-          breaks <- c(head(hcl$height,1L),seq(head(hcl$height,1L)+k*step,tail(hcl$height,1L),by=step))
+          breaks <- as.double(c(head(hcl$height,1L),seq(head(hcl$height,1L)+k*step,tail(hcl$height,1L),by=step)))
           num_bins=length(breaks)
         }else{
           breaks <- as.double(seq(head(hcl$height,1L), tail(hcl$height,1L), length.out = num_bins))
