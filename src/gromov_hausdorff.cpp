@@ -2,7 +2,7 @@
 using namespace Rcpp;
 
 // [[Rcpp::depends(simplextree)]]
-#include "utilities.h"
+#include "dist_utilities.h"
 #include <cmath>
 
 // std::pair<NumericMatrix, NumericMatrix> make_constraints(const size_t N){
