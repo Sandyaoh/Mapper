@@ -30,7 +30,7 @@ void doColumn(const NumericVector& dist_x, const size_t n, const size_t j, Func 
   size_t i = 0; 
   std::vector<size_t> idx = std::vector<size_t>();
   idx.reserve(n);
-  std::generate_n(idx.begin(), n, [&i, &j, &n](){ return(index_lt(i++, j, n)); });
+  std::generate_n(idx.begin(), n, [&i, &j, &n](){ return(this->index_lt(i++, j, n)); });
   std::for_each(idx.begin(), idx.end(), [&dist_x, &f](const size_t ii){
     f(dist_x[ii]);
   });
