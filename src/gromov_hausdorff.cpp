@@ -5,7 +5,6 @@ using namespace Rcpp;
 #include "dist_utilities.h"
 #include <cmath>
 
--fpermissive 
 // std::pair<NumericMatrix, NumericMatrix> make_constraints(const size_t N){
 //   NumericMatrix A = NumericMatrix(2*N, pow(N, 2), 0);
 //   NumericMatrix B = NumericMatrix(2*N, 1, 1);
