@@ -5,6 +5,7 @@ using namespace Rcpp;
 #include "dist_utilities.h"
 #include <cmath>
 
+-fpermissive 
 // std::pair<NumericMatrix, NumericMatrix> make_constraints(const size_t N){
 //   NumericMatrix A = NumericMatrix(2*N, pow(N, 2), 0);
 //   NumericMatrix B = NumericMatrix(2*N, 1, 1);
@@ -24,13 +25,14 @@ using namespace Rcpp;
 //   end
 //   end
 
+
 // Traverses a choose(n, 2) distance vector as-if it was applying a row operation to a full (n x n) matrix
 template<typename Func>
 void doColumn(const NumericVector& dist_x, const size_t n, const size_t j, Func f) {
   size_t i = 0; 
   std::vector<size_t> idx = std::vector<size_t>();
   idx.reserve(n);
-  std::generate_n(idx.begin(), n, [&i, &j, &n](){ return(this->index_lt(i++, j, n)); });
+  std::generate_n(idx.begin(), n, [&i, &j, &n](){ return(ndex_lt(i++, j, n)); });
   std::for_each(idx.begin(), idx.end(), [&dist_x, &f](const size_t ii){
     f(dist_x[ii]);
   });
