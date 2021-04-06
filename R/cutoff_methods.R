@@ -83,8 +83,9 @@ cutoff_first_threshold <- function(hcl, threshold = 0.0, tol = sqrt(.Machine$dou
   if (is.null(density_params$n)){ density_params$n <- min(c(2^ceiling(log(n)/log(2)), 512L)) }
   density_params$x <- hcl$height
   f_h <- do.call(stats::density, density_params)
-  cut_idx <- min(Position(function(x) abs(x - threshold) < tol, x = f_h$y))
-  return(ifelse(is.na(cut_idx) || cut_idx == 1L, max(hcl$height), f_h$x[cut_idx]))
+  cuts_idx <- which(abs(f_h$y) < sqrt(.Machine$double.eps)) #positions with value less than tol
+  height=Find(function(x) x>= min_dist , x=f_h$x[cuts_idx]) #proper height
+  return(ifelse(is.na(cut_idx) || cut_idx == 1L, max(hcl$height), height))
   # if (is.na(cut_idx) || cut_idx == 1L) { as.vector(cutree(hcl, k = 1L)) }
   # else { as.vector(cutree(hcl, h = )) }
 }
