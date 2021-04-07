@@ -84,7 +84,7 @@ cutoff_first_threshold <- function(hcl, threshold = 0.0, tol = sqrt(.Machine$dou
   density_params$x <- hcl$height
   f_h <- do.call(stats::density, density_params)
   cuts_idx <- which(abs(f_h$y) < sqrt(.Machine$double.eps)) #positions with value less than tol
-  if(length(cuts_idx == 0)){cuts_idx=c(1)}
+  if(length(cuts_idx) == 0){cuts_idx=c(1)}
   if(is.null(min_dist)){
     height <- f_h$x[min(cuts_idx)]
   }else{
